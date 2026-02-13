@@ -18,7 +18,7 @@ class SquidlyPianoGame {
 
   _setupAudioSources() {
     // Preload audio sources for each key
-    for (const key in this.audioElements) {
+    for (const key of this.keys) {
       const audio = new Audio(`${BASE_URL}sounds/${key}.mp3`);
       this.audioElements[key] = audio;
     }
