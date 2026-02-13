@@ -2,13 +2,8 @@ const BASE_URL = new URL(".", import.meta.url).href;
 
 class SquidlyPianoGame {
   constructor() {
-    this.audioElements = {
-      C: null,
-      D: null,
-      E: null,
-      F: null,
-      G: null,
-    };
+    this.keys = ["C", "D", "E", "F", "G"];
+    this.audioElements = {};
     this.init();
   }
 
@@ -39,7 +34,7 @@ class SquidlyPianoGame {
     document.body.appendChild(pianoContainer);
     // 5 keys: C, D, E, F, G
     // iterate over the keys on the keyboard and create buttons for them
-    for (const key in this.audioElements) {
+    for (const key of this.keys) {
       const accessButtonWrapper = document.createElement("access-button");
       const button = document.createElement("button");
       button.textContent = key;
