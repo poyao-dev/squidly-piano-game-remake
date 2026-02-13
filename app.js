@@ -30,14 +30,22 @@ class SquidlyPianoGame {
   }
 
   _setupKeyboard() {
+    // Create a container for the piano keys
+    const pianoContainer = document.createElement("div");
+    // flexbox with wrapping layout, centered at the bottom, filling available height
+    pianoContainer.className =
+      "flex flex-wrap justify-center items-end h-full p-2";
+
+    document.body.appendChild(pianoContainer);
     // 5 keys: C, D, E, F, G
     // iterate over the keys on the keyboard and create buttons for them
     for (const key in this.audioElements) {
       const accessButtonWrapper = document.createElement("access-button");
       const button = document.createElement("button");
       button.textContent = key;
+      //   elongated button, font size 2xl, with some padding, rounded corners, and a shadow
       button.className =
-        "bg-white text-black font-bold py-4 px-6 rounded-lg shadow-lg m-2 transform transition hover:-translate-y-0.5 active:translate-y-0";
+        "w-[clamp(3rem,15vmin,6rem)] h-[clamp(3rem,15vmin,6rem)] bg-white text-black font-bold text-sm sm:text-lg md:text-2xl py-2 px-3 rounded-lg shadow-lg m-1 sm:m-3 md:m-5 transform transition hover:-translate-y-0.5 active:translate-y-0";
 
       accessButtonWrapper.addEventListener("access-click", () => {
         console.log(`Key ${key} pressed`);
@@ -45,7 +53,7 @@ class SquidlyPianoGame {
         SquidlyAPI.firebaseSet("pianoKeyPressed", key + "_" + Date.now());
       });
       accessButtonWrapper.appendChild(button);
-      document.body.appendChild(accessButtonWrapper);
+      pianoContainer.appendChild(accessButtonWrapper);
     }
   }
 
@@ -59,7 +67,7 @@ class SquidlyPianoGame {
       console.log("Piano key pressed:", key);
       // Reuse pre-loaded audio if available
       if (this.audioElements[key]) {
-        this.audioElements[key].play();
+        this.audioElements[key].play().catch(() => {});
       }
     });
   }
