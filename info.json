@@ -1,9 +1,9 @@
 {
-  "name": "demo",
-  "title": "Demo",
-  "subtitle": "Demo",
+  "name": "PianoTrials",
+  "title": "Piano Trials",
+  "subtitle": "Piano Trials",
   "version": "1.0.0",
-  "description": "Demo",
+  "description": "Piano Trials",
   "author": "poyaohuang",
   "icon": ""
 }
