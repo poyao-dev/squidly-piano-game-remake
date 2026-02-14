@@ -19,7 +19,7 @@ class SquidlyPianoGame {
     // Init the volume level from Firebase and set up a listener for changes
     await SquidlyAPI.getSettings(
       `${session_info.user}/volume/level`,
-      this._updateVolume.bind(this),
+      this._updateVolume,
     );
     this._setupAudioSources();
     this._setupKeyboard();
