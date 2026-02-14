@@ -42,42 +42,27 @@ class SquidlyPianoGame {
     }
   }
 
+  _adjustVolume = (delta) => {
+    this.volume = Math.min(1.0, Math.max(0.0, this.volume + delta));
+    SquidlyAPI.setSettings(
+      `${session_info.user}/volume/level`,
+      this.volume * 100,
+    );
+  };
+
   _setupSideBarButtons() {
-    // Create a sidebar container
-    SquidlyAPI.setIcon(
-      1,
-      0,
-      {
-        symbol: "add",
-        displayValue: "Volume Up",
-        type: "action",
-      },
-      () => {
-        // On click, increase volume by 5%
-        this.volume = Math.min(1.0, this.volume + 0.05);
-        SquidlyAPI.setSettings(
-          `${session_info.user}/volume/level`,
-          this.volume * 100,
-        );
-      },
-    );
-    SquidlyAPI.setIcon(
-      2,
-      0,
-      {
-        symbol: "minus",
-        displayValue: "Volume Down",
-        type: "action",
-      },
-      () => {
-        // On click, decrease volume by 5%
-        this.volume = Math.max(0.0, this.volume - 0.05);
-        SquidlyAPI.setSettings(
-          `${session_info.user}/volume/level`,
-          this.volume * 100,
-        );
-      },
-    );
+    const buttons = [
+      { id: 1, symbol: "add", label: "Volume Up", delta: 0.05 },
+      { id: 2, symbol: "minus", label: "Volume Down", delta: -0.05 },
+    ];
+    for (const { id, symbol, label, delta } of buttons) {
+      SquidlyAPI.setIcon(
+        id,
+        0,
+        { symbol, displayValue: label, type: "action" },
+        () => this._adjustVolume(delta),
+      );
+    }
   }
 
   _setupKeyboard() {
