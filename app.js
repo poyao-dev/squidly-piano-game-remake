@@ -1,3 +1,5 @@
+import { Piano3D } from "./piano3d.js";
+
 const BASE_URL = new URL(".", import.meta.url).href;
 
 class SquidlyPianoGame {
@@ -11,6 +13,10 @@ class SquidlyPianoGame {
   async init() {
     // Initialize the game here
     console.log("Squidly Piano Game Initialized");
+
+    // Initialize 3D Piano
+    this.piano3D = new Piano3D(document.body);
+
     SquidlyAPI.firebaseSet("pianoKeyPressed", null); // Initialize the value in Firebase
     console.log(
       "Fetching initial volume level... from " +
@@ -81,7 +87,7 @@ class SquidlyPianoGame {
       button.textContent = key;
       //   elongated button, font size 2xl, with some padding, rounded corners, and a shadow
       button.className =
-        "w-[10vh] h-[30vh] bg-white text-black font-bold text-sm sm:text-lg md:text-2xl py-2 px-3 rounded-lg shadow-lg m-1 sm:m-3 md:m-5 transform transition hover:-translate-y-0.5 active:translate-y-0";
+        "w-[15vh] h-[15vh] bg-white text-black font-bold text-sm sm:text-lg md:text-2xl py-2 px-3 rounded-full shadow-lg m-1 sm:m-3 md:m-5 transform transition hover:-translate-y-0.5 active:translate-y-0";
 
       accessButtonWrapper.addEventListener("access-click", () => {
         console.log(`Key ${key} pressed`);
@@ -105,6 +111,11 @@ class SquidlyPianoGame {
       const key = value.split("_")[0];
       console.log("Piano key pressed:", key);
       this.audioElements[key]?.play().catch(() => {});
+
+      // Animate the 3D key
+      if (this.piano3D) {
+        this.piano3D.pressKey(key);
+      }
     });
     // Listen for volume changes using the same handler
     SquidlyAPI.addSettingsListener(
