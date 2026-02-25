@@ -9,6 +9,17 @@ export class Piano3D {
     this.init();
   }
 
+  // let mouse = new Vector2(
+  //           (x / this.clientWidth) * 2 - 1,
+  //           -(y / this.clientHeight) * 2 + 1
+  //       );
+  //       let raycaster = new Raycaster();
+  //       raycaster.setFromCamera(mouse, this.camera);
+  //       let intersects = raycaster.intersectObjects(meshes || []);
+  //       return intersects;
+
+  // camera.getViewSize(zValue)
+
   init() {
     // Scene setup
     this.scene = new THREE.Scene();
