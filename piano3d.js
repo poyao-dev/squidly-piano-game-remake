@@ -1,6 +1,48 @@
 import * as THREE from "three";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+
+const PIANO_CONFIG = {
+  keySpacing: 20.5,
+  groupScale: 1.2,
+  materials: {
+    white: {
+      color: 0xffffff,
+      roughness: 0.05,
+      metalness: 0.0,
+      envMapIntensity: 1.5,
+    },
+    black: {
+      color: 0x333333,
+      roughness: 0.05,
+      metalness: 0.0,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.05,
+      envMapIntensity: 2.0,
+    },
+  },
+  // xIndex is a multiplier of keySpacing, centered around 0 (F = 0)
+  whiteKeys: [
+    { note: "C", file: "Left Piano Key.stl", xIndex: -3 },
+    { note: "D", file: "Middle Piano Key.stl", xIndex: -2 },
+    { note: "E", file: "Right Piano Key.stl", xIndex: -1 },
+    { note: "F", file: "Left Piano Key.stl", xIndex: 0 },
+    { note: "G", file: "Middle Piano Key.stl", xIndex: 1 },
+    { note: "A", file: "Middle Piano Key.stl", xIndex: 2 },
+    { note: "B", file: "Right Piano Key.stl", xIndex: 3 },
+  ],
+  // xOffset is a half-spacing multiplier, e.g. -2.5 sits between xIndex -3 and -2
+  blackKeys: [
+    { note: "C#", xOffset: -2.5 },
+    { note: "D#", xOffset: -1.5 },
+    { note: "F#", xOffset: 0.5 },
+    { note: "G#", xOffset: 1.5 },
+    { note: "A#", xOffset: 2.5 },
+  ],
+  blackKeyScale: [1.2, 0.75, 0.4],
+  blackKeyPosition: { y: 10, z: -10 },
+};
 
 export class Piano3D {
   constructor(container) {
@@ -38,6 +80,8 @@ export class Piano3D {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
 
     // Style the canvas to be in the background
     this.renderer.domElement.style.position = "absolute";
@@ -52,12 +96,24 @@ export class Piano3D {
     controls.update();
 
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     this.scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(50, 100, 50);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    // Positioned to hit the keys at an angle to create bright spec highlights
+    dirLight.position.set(0, 150, 50);
     this.scene.add(dirLight);
+
+    // Add a secondary light closer to front/top that acts purely as a strong reflection source
+    const reflectionLight = new THREE.DirectionalLight(0xffffff, 2.0);
+    reflectionLight.position.set(20, 50, 80);
+    this.scene.add(reflectionLight);
+
+    // Environment map for reflections
+    const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+    const envTexture = pmremGenerator.fromScene(new RoomEnvironment()).texture;
+    this.scene.environment = envTexture;
+    pmremGenerator.dispose();
 
     this.loadModels();
 
@@ -68,103 +124,49 @@ export class Piano3D {
 
   loadModels() {
     const loader = new STLLoader();
-    const materialWhite = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      roughness: 0.2,
-      metalness: 0.1,
-    });
-    const materialBlack = new THREE.MeshStandardMaterial({
-      color: 0x111111,
-      roughness: 0.2,
-      metalness: 0.1,
-    });
+    const {
+      keySpacing,
+      groupScale,
+      materials,
+      whiteKeys,
+      blackKeys,
+      blackKeyScale,
+      blackKeyPosition,
+    } = PIANO_CONFIG;
 
-    // Define the layout for C, D, E, F, G
-    // You may need to adjust the spacing (xOffset) and scale depending on the actual STL sizes
-    const keySpacing = 22;
-    const layout = [
-      {
-        note: "C",
-        file: "Left Piano Key.stl",
-        material: materialWhite,
-        x: -keySpacing * 2,
-      },
-      {
-        note: "D",
-        file: "Middle Piano Key.stl",
-        material: materialWhite,
-        x: -keySpacing,
-      },
-      { note: "E", file: "Right Piano Key.stl", material: materialWhite, x: 0 },
-      {
-        note: "F",
-        file: "Left Piano Key.stl",
-        material: materialWhite,
-        x: keySpacing,
-      },
-      {
-        note: "G",
-        file: "Right Piano Key.stl",
-        material: materialWhite,
-        x: keySpacing * 2,
-      },
-    ];
+    this.keysGroup = new THREE.Group();
+    this.keysGroup.scale.setScalar(groupScale);
+    this.scene.add(this.keysGroup);
 
-    layout.forEach((keyDef) => {
+    const materialWhite = new THREE.MeshStandardMaterial(materials.white);
+    const materialBlack = new THREE.MeshPhysicalMaterial(materials.black);
+
+    whiteKeys.forEach((keyDef) => {
       loader.load(`./mesh/${keyDef.file}`, (geometry) => {
         geometry.computeVertexNormals();
-        // Center the geometry to make positioning easier
         geometry.center();
-
-        const mesh = new THREE.Mesh(geometry, keyDef.material);
-        mesh.position.set(keyDef.x, 0, 0);
-
-        // STL models often need to be rotated to face upwards correctly
+        const mesh = new THREE.Mesh(geometry, materialWhite);
+        mesh.position.set(keyDef.xIndex * keySpacing, 0, 0);
         mesh.rotation.x = -Math.PI / 2;
-
-        this.scene.add(mesh);
-        this.keys.push({
-          note: keyDef.note,
-          mesh: mesh,
-          restingY: mesh.position.y,
-        });
+        this.keysGroup.add(mesh);
+        this.keys.push({ note: keyDef.note, mesh, restingY: mesh.position.y });
       });
     });
 
-    // Example of loading a black key (C#)
-    loader.load("./mesh/black key.stl", (geometry) => {
-      geometry.computeVertexNormals();
-      geometry.center();
-      const mesh = new THREE.Mesh(geometry, materialBlack);
-      // Position it between C and D, slightly higher and further back
-      mesh.position.set(-keySpacing * 1.5, 10, -10);
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.scale.set(1, 0.65, 1); // Shorten length to avoid overlapping white keys
-      this.scene.add(mesh);
-    });
-
-    // Example of loading a black key (D#)
-    loader.load("./mesh/black key.stl", (geometry) => {
-      geometry.computeVertexNormals();
-      geometry.center();
-      const mesh = new THREE.Mesh(geometry, materialBlack);
-      // Position it between D and E
-      mesh.position.set(-keySpacing * 0.5, 10, -10);
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.scale.set(1, 0.65, 1); // Shorten length to avoid overlapping white keys
-      this.scene.add(mesh);
-    });
-
-    // You can add more black keys (F#, G#) similarly if needed
-    loader.load("./mesh/black key.stl", (geometry) => {
-      geometry.computeVertexNormals();
-      geometry.center();
-      const mesh = new THREE.Mesh(geometry, materialBlack);
-      // Position it between F and G
-      mesh.position.set(keySpacing * 1.5, 10, -10);
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.scale.set(1, 0.65, 1); // Shorten length to avoid overlapping white keys
-      this.scene.add(mesh);
+    blackKeys.forEach((keyDef) => {
+      loader.load("./mesh/black key.stl", (geometry) => {
+        geometry.computeVertexNormals();
+        geometry.center();
+        const mesh = new THREE.Mesh(geometry, materialBlack);
+        mesh.position.set(
+          keyDef.xOffset * keySpacing,
+          blackKeyPosition.y,
+          blackKeyPosition.z,
+        );
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.scale.set(...blackKeyScale);
+        this.keysGroup.add(mesh);
+      });
     });
   }
 
