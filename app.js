@@ -4,7 +4,21 @@ const BASE_URL = new URL(".", import.meta.url).href;
 
 class SquidlyPianoGame {
   constructor() {
-    this.keys = ["C", "D", "E", "F", "G"];
+    // You can add "C#", "D#", etc. to this array if/when you have sounds for them
+    this.keys = [
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "A",
+      "B",
+      "C#",
+      "D#",
+      "F#",
+      "G#",
+      "A#",
+    ];
     this.audioElements = {};
     this.volume = 1.0; // Default volume level
     this.init();
@@ -43,6 +57,9 @@ class SquidlyPianoGame {
   _setupAudioSources() {
     // Preload audio sources for each key
     for (const key of this.keys) {
+      // Need to handle C# mapping to "Cs" if files are named like Cs.mp3, etc.
+      // If they literally have a `#` in the filename, you're fine as is.
+      // E.g., const fileName = key.replace('#', 's');
       const audio = new Audio(`${BASE_URL}sounds/${key}.mp3`);
       this.audioElements[key] = audio;
     }
@@ -79,9 +96,9 @@ class SquidlyPianoGame {
       "flex flex-wrap justify-center items-end h-full p-2";
 
     document.body.appendChild(pianoContainer);
-    // 5 keys: C, D, E, F, G
-    // iterate over the keys on the keyboard and create buttons for them
-    for (const key of this.keys) {
+    // iterate over the white keys on the keyboard and create buttons for them
+    const whiteKeys = this.keys.filter((k) => !k.includes("#"));
+    for (const key of whiteKeys) {
       const accessButtonWrapper = document.createElement("access-button");
       const button = document.createElement("button");
       button.textContent = key;
@@ -110,7 +127,13 @@ class SquidlyPianoGame {
       if (!value) return;
       const key = value.split("_")[0];
       console.log("Piano key pressed:", key);
-      this.audioElements[key]?.play().catch(() => {});
+
+      // Play the audio
+      if (this.audioElements[key]) {
+        // Reset playback position if it's already playing
+        this.audioElements[key].currentTime = 0;
+        this.audioElements[key].play().catch(() => {});
+      }
 
       // Animate the 3D key
       if (this.piano3D) {
@@ -122,6 +145,16 @@ class SquidlyPianoGame {
       `${session_info.user}/volume/level`,
       this._updateVolume,
     );
+
+    // Listen for 3D piano clicks
+    window.addEventListener("piano3d-keypress", (e) => {
+      const key = e.detail.note;
+      // Strip out sharp symbol (e.g. "C#") to play the base note since you don't have sharp sounds yet,
+      // or you can just let it try and fail gracefully.
+      // Easiest is to just send it exactly like the UI buttons do:
+      console.log(`3D Key ${key} clicked`);
+      SquidlyAPI.firebaseSet("pianoKeyPressed", key + "_" + Date.now());
+    });
   }
 }
 

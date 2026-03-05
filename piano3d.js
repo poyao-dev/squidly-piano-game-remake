@@ -117,7 +117,12 @@ export class Piano3D {
 
     this.loadModels();
 
+    // Raycaster setup
+    this.raycaster = new THREE.Raycaster();
+    this.mouse = new THREE.Vector2();
+
     window.addEventListener("resize", this.onWindowResize.bind(this));
+    window.addEventListener("pointerdown", this.onPointerDown.bind(this));
 
     this.animate();
   }
@@ -149,6 +154,8 @@ export class Piano3D {
         mesh.position.set(keyDef.xIndex * keySpacing, 0, 0);
         mesh.rotation.x = -Math.PI / 2;
         this.keysGroup.add(mesh);
+        // store back-reference on mesh for raycaster
+        mesh.userData = { note: keyDef.note };
         this.keys.push({ note: keyDef.note, mesh, restingY: mesh.position.y });
       });
     });
@@ -165,7 +172,9 @@ export class Piano3D {
         );
         mesh.rotation.x = -Math.PI / 2;
         mesh.scale.set(...blackKeyScale);
+        mesh.userData = { note: keyDef.note };
         this.keysGroup.add(mesh);
+        this.keys.push({ note: keyDef.note, mesh, restingY: mesh.position.y });
       });
     });
   }
@@ -174,6 +183,35 @@ export class Piano3D {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  onPointerDown(event) {
+    // Calculate mouse position in normalized device coordinates (-1 to +1)
+    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Update the picking ray with the camera and mouse position
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+
+    // Calculate objects intersecting the picking ray
+    // Intersect only with meshes inside keysGroup
+    const intersects = this.raycaster.intersectObjects(
+      this.keysGroup.children,
+      false,
+    );
+
+    if (intersects.length > 0) {
+      // The first intersected object is the closest one
+      const hitMesh = intersects[0].object;
+      const note = hitMesh.userData.note;
+      if (note) {
+        // Dispatch a custom event so the main app can integrate it with Firebase/Audio seamlessly
+        const pianoEvent = new CustomEvent("piano3d-keypress", {
+          detail: { note },
+        });
+        window.dispatchEvent(pianoEvent);
+      }
+    }
   }
 
   pressKey(note) {
