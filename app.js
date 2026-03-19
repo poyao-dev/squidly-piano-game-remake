@@ -13,11 +13,11 @@ class SquidlyPianoGame {
       "G",
       "A",
       "B",
-      "C#",
-      "D#",
-      "F#",
-      "G#",
-      "A#",
+      "Db",
+      "Eb",
+      "Gb",
+      "Ab",
+      "Bb",
     ];
     this.audioElements = {};
     this.volume = 1.0; // Default volume level

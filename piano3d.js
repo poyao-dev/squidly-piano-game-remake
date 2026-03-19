@@ -34,11 +34,11 @@ const PIANO_CONFIG = {
   ],
   // xOffset is a half-spacing multiplier, e.g. -2.5 sits between xIndex -3 and -2
   blackKeys: [
-    { note: "C#", xOffset: -2.5 },
-    { note: "D#", xOffset: -1.5 },
-    { note: "F#", xOffset: 0.5 },
-    { note: "G#", xOffset: 1.5 },
-    { note: "A#", xOffset: 2.5 },
+    { note: "Db", xOffset: -2.5 },
+    { note: "Eb", xOffset: -1.5 },
+    { note: "Gb", xOffset: 0.5 },
+    { note: "Ab", xOffset: 1.5 },
+    { note: "Bb", xOffset: 2.5 },
   ],
   blackKeyScale: [1.2, 0.75, 0.4],
   blackKeyPosition: { y: 10, z: -10 },
