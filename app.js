@@ -42,9 +42,16 @@ class SquidlyPianoGame {
       this._updateVolume,
     );
     this._setupAudioSources();
-    this._setupKeyboard();
+    // this._setupKeyboard();
     this._setupListeners();
     this._setupSideBarButtons();
+    this._setupOverlayButtons();
+    // In init(), after creating piano3D:
+    const originalAnimate = this.piano3D.animate.bind(this.piano3D);
+    this.piano3D.animate = () => {
+      originalAnimate();
+      this._updateOverlayPositions();
+    };
   }
 
   _updateVolume = (value) => {
@@ -155,6 +162,55 @@ class SquidlyPianoGame {
       console.log(`3D Key ${key} clicked`);
       SquidlyAPI.firebaseSet("pianoKeyPressed", key + "_" + Date.now());
     });
+  }
+
+  _setupOverlayButtons() {
+    this.overlayContainer = document.createElement("div");
+    this.overlayContainer.style.cssText =
+      "position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:10;";
+    document.body.appendChild(this.overlayContainer);
+
+    this.accessButtons = {};
+
+    // Use this.keys (the note name array) — always available immediately
+    for (const key of this.keys) {
+      const ab = document.createElement("access-button");
+      ab.setAttribute("access-group", "piano-keys");
+      ab.style.cssText = `
+      position: absolute;
+      width: 60px; height: 80px;
+      pointer-events: auto;
+      background: transparent;
+      opacity: 0.01;
+      cursor: pointer;
+      display: none;
+    `;
+
+      ab.addEventListener("access-click", () => {
+        console.log(`Dwell-click on key: ${key}`);
+        SquidlyAPI.firebaseSet("pianoKeyPressed", key + "_" + Date.now());
+      });
+
+      this.overlayContainer.appendChild(ab);
+      this.accessButtons[key] = ab;
+    }
+
+    // Position updates happen in the animation loop —
+    // buttons stay hidden (display:none) until their 3D key mesh is loaded
+  }
+
+  _updateOverlayPositions() {
+    if (!this.piano3D || !this.piano3D.keys.length) return;
+
+    for (const keyObj of this.piano3D.keys) {
+      const ab = this.accessButtons[keyObj.note];
+      if (!ab || !keyObj.mesh) continue;
+
+      const pos = this.piano3D.getKeyScreenPosition(keyObj);
+      ab.style.left = `${pos.x - 30}px`;
+      ab.style.top = `${pos.y - 40}px`;
+      ab.style.display = "block"; // show once the mesh is ready
+    }
   }
 }
 

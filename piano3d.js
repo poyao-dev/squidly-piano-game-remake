@@ -5,7 +5,7 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 const PIANO_CONFIG = {
   keySpacing: 20.5,
-  groupScale: 1.2,
+  groupScale: 1.5,
   materials: {
     white: {
       color: 0xffffff,
@@ -42,6 +42,7 @@ const PIANO_CONFIG = {
   ],
   blackKeyScale: [1.2, 0.75, 0.4],
   blackKeyPosition: { y: 10, z: -10 },
+  leftUIRatio: 0.2,
 };
 
 export class Piano3D {
@@ -79,6 +80,7 @@ export class Piano3D {
     // Renderer setup
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
@@ -137,10 +139,16 @@ export class Piano3D {
       blackKeys,
       blackKeyScale,
       blackKeyPosition,
+      leftUIRatio,
     } = PIANO_CONFIG;
 
     this.keysGroup = new THREE.Group();
     this.keysGroup.scale.setScalar(groupScale);
+    const worldWidth = this._getWorldWidthAtZ(this.camera.position.z);
+    // shift by half of the UI portion (because center moves)
+    const shiftX = worldWidth * (leftUIRatio / 2);
+
+    this.keysGroup.position.x += shiftX;
     this.scene.add(this.keysGroup);
 
     const materialWhite = new THREE.MeshStandardMaterial(materials.white);
@@ -229,5 +237,42 @@ export class Piano3D {
   animate() {
     requestAnimationFrame(this.animate.bind(this));
     this.renderer.render(this.scene, this.camera);
+  }
+
+  // Add this method to the Piano3D class
+
+  /**
+   * Projects a 3D key's world position to 2D screen coordinates.
+   * Returns { x, y } in pixels relative to the viewport.
+   */
+  getKeyScreenPosition(keyObj) {
+    const worldPos = new THREE.Vector3();
+    keyObj.mesh.getWorldPosition(worldPos);
+
+    // Project 3D → NDC (normalized device coordinates)
+    const ndc = worldPos.clone().project(this.camera);
+
+    // NDC → screen pixels
+    const x = (ndc.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (-ndc.y * 0.5 + 0.5) * window.innerHeight;
+    return { x, y };
+  }
+
+  /**
+   * Returns screen positions for all keys.
+   * Call this after models have loaded and on each resize.
+   */
+  getAllKeyScreenPositions() {
+    return this.keys.map((k) => ({
+      note: k.note,
+      ...this.getKeyScreenPosition(k),
+    }));
+  }
+
+  _getWorldWidthAtZ(z) {
+    const vFOV = (this.camera.fov * Math.PI) / 180;
+    const height = 2 * Math.tan(vFOV / 2) * Math.abs(z);
+    const width = height * this.camera.aspect;
+    return width;
   }
 }
