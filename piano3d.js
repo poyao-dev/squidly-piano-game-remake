@@ -6,6 +6,7 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 const PIANO_CONFIG = {
   keySpacing: 20.5,
   groupScale: 1.5,
+  groupRotationX: Math.PI / 8,
   materials: {
     white: {
       color: 0xffffff,
@@ -40,8 +41,8 @@ const PIANO_CONFIG = {
     { note: "Ab", xOffset: 1.5 },
     { note: "Bb", xOffset: 2.5 },
   ],
-  blackKeyScale: [1.2, 0.75, 0.4],
-  blackKeyPosition: { y: 10, z: -10 },
+  blackKeyScale: [1.2, 0.9, 0.4],
+  blackKeyPosition: { y: 8, z: -13 },
   leftUIRatio: 0.2,
 };
 
@@ -134,6 +135,7 @@ export class Piano3D {
     const {
       keySpacing,
       groupScale,
+      groupRotationX,
       materials,
       whiteKeys,
       blackKeys,
@@ -144,11 +146,12 @@ export class Piano3D {
 
     this.keysGroup = new THREE.Group();
     this.keysGroup.scale.setScalar(groupScale);
-    const worldWidth = this._getWorldWidthAtZ(this.camera.position.z);
+    this.keysGroup.rotation.x = groupRotationX;
+    // const worldWidth = this._getWorldWidthAtZ(this.camera.position.z);
     // shift by half of the UI portion (because center moves)
-    const shiftX = worldWidth * (leftUIRatio / 2);
+    // const shiftX = worldWidth * (leftUIRatio / 2);
 
-    this.keysGroup.position.x += shiftX;
+    // this.keysGroup.position.x += shiftX;
     this.scene.add(this.keysGroup);
 
     const materialWhite = new THREE.MeshStandardMaterial(materials.white);

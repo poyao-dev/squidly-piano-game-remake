@@ -172,19 +172,19 @@ class SquidlyPianoGame {
 
     this.accessButtons = {};
 
-    // Use this.keys (the note name array) — always available immediately
     for (const key of this.keys) {
       const ab = document.createElement("access-button");
       ab.setAttribute("access-group", "piano-keys");
+
+      // ✅ Keep a generous hit area so elementFromPoint can find it,
+      // but the raycaster isPointInElement does the PRECISE check
       ab.style.cssText = `
-      position: absolute;
-      width: 60px; height: 80px;
-      pointer-events: auto;
-      background: transparent;
-      opacity: 0.01;
-      cursor: pointer;
-      display: none;
-    `;
+        position: absolute;
+        pointer-events: auto;
+        background: transparent;
+        opacity: 0.01;
+        display: none;
+      `;
 
       ab.addEventListener("access-click", () => {
         console.log(`Dwell-click on key: ${key}`);
@@ -194,9 +194,6 @@ class SquidlyPianoGame {
       this.overlayContainer.appendChild(ab);
       this.accessButtons[key] = ab;
     }
-
-    // Position updates happen in the animation loop —
-    // buttons stay hidden (display:none) until their 3D key mesh is loaded
   }
 
   _updateOverlayPositions() {
@@ -206,10 +203,19 @@ class SquidlyPianoGame {
       const ab = this.accessButtons[keyObj.note];
       if (!ab || !keyObj.mesh) continue;
 
+      // ✅ Size the overlay to roughly cover the 3D key's screen projection
+      // This is the "coarse" hit area for elementFromPoint
+      // The raycaster isPointInElement does the precise check
       const pos = this.piano3D.getKeyScreenPosition(keyObj);
-      ab.style.left = `${pos.x - 30}px`;
-      ab.style.top = `${pos.y - 40}px`;
-      ab.style.display = "block"; // show once the mesh is ready
+      const isBlack = keyObj.note.length > 1; // "Db", "Eb", etc.
+      const w = isBlack ? 30 : 50;
+      const h = isBlack ? 60 : 100;
+
+      ab.style.left = `${pos.x - w / 2}px`;
+      ab.style.top = `${pos.y}px`;
+      ab.style.width = `${1.2 * w}px`;
+      ab.style.height = `${1.2 * h}px`;
+      ab.style.display = "block";
     }
   }
 }
