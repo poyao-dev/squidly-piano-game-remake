@@ -147,11 +147,11 @@ export class Piano3D {
     this.keysGroup = new THREE.Group();
     this.keysGroup.scale.setScalar(groupScale);
     this.keysGroup.rotation.x = groupRotationX;
-    // const worldWidth = this._getWorldWidthAtZ(this.camera.position.z);
+    const worldWidth = this._getWorldWidthAtZ(this.camera.position.z);
     // shift by half of the UI portion (because center moves)
-    // const shiftX = worldWidth * (leftUIRatio / 2);
+    const shiftX = worldWidth * (leftUIRatio / 3);
 
-    // this.keysGroup.position.x += shiftX;
+    this.keysGroup.position.x += shiftX;
     this.scene.add(this.keysGroup);
 
     const materialWhite = new THREE.MeshStandardMaterial(materials.white);
