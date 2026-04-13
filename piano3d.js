@@ -43,6 +43,14 @@ const PIANO_CONFIG = {
   ],
   blackKeyScale: [1.2, 0.9, 0.4],
   blackKeyPosition: { y: 8, z: -13 },
+  body: {
+    file: "piano body.stl",
+    yOffset: 60,
+    zOffset: -20,
+    widthPadding: 28,
+    depthPadding: 40,
+    topGap: 8,
+  },
   leftUIRatio: 0.2,
 };
 
@@ -141,10 +149,12 @@ export class Piano3D {
       blackKeys,
       blackKeyScale,
       blackKeyPosition,
+      body,
       leftUIRatio,
     } = PIANO_CONFIG;
 
     this.keysGroup = new THREE.Group();
+    this.clickableMeshes = [];
     this.keysGroup.scale.setScalar(groupScale);
     this.keysGroup.rotation.x = groupRotationX;
     const worldWidth = this._getWorldWidthAtZ(this.camera.position.z);
@@ -157,36 +167,40 @@ export class Piano3D {
     const materialWhite = new THREE.MeshStandardMaterial(materials.white);
     const materialBlack = new THREE.MeshPhysicalMaterial(materials.black);
 
-    whiteKeys.forEach((keyDef) => {
-      loader.load(`./mesh/${keyDef.file}`, (geometry) => {
-        geometry.computeVertexNormals();
-        geometry.center();
-        const mesh = new THREE.Mesh(geometry, materialWhite);
+    const whiteKeyLoads = whiteKeys.map((keyDef) =>
+      loader.loadAsync(`./mesh/${keyDef.file}`).then((geometry) => {
+        const mesh = this._buildKeyMesh(geometry, materialWhite, keyDef.note);
         mesh.position.set(keyDef.xIndex * keySpacing, 0, 0);
-        mesh.rotation.x = -Math.PI / 2;
         this.keysGroup.add(mesh);
-        // store back-reference on mesh for raycaster
-        mesh.userData = { note: keyDef.note };
+        this.clickableMeshes.push(mesh);
         this.keys.push({ note: keyDef.note, mesh, restingY: mesh.position.y });
-      });
-    });
+      }),
+    );
 
-    blackKeys.forEach((keyDef) => {
-      loader.load("./mesh/black key.stl", (geometry) => {
-        geometry.computeVertexNormals();
-        geometry.center();
-        const mesh = new THREE.Mesh(geometry, materialBlack);
+    const blackKeyLoads = blackKeys.map((keyDef) =>
+      loader.loadAsync("./mesh/black key.stl").then((geometry) => {
+        const mesh = this._buildKeyMesh(geometry, materialBlack, keyDef.note);
         mesh.position.set(
           keyDef.xOffset * keySpacing,
           blackKeyPosition.y,
           blackKeyPosition.z,
         );
-        mesh.rotation.x = -Math.PI / 2;
         mesh.scale.set(...blackKeyScale);
-        mesh.userData = { note: keyDef.note };
         this.keysGroup.add(mesh);
+        this.clickableMeshes.push(mesh);
         this.keys.push({ note: keyDef.note, mesh, restingY: mesh.position.y });
+      }),
+    );
+
+    const bodyLoad = loader
+      .loadAsync(`./mesh/${body.file}`)
+      .then((geometry) => {
+        this.bodyMesh = this._buildBodyMesh(geometry);
+        this.keysGroup.add(this.bodyMesh);
       });
+
+    Promise.all([...whiteKeyLoads, ...blackKeyLoads, bodyLoad]).then(() => {
+      this._placeBodyMesh();
     });
   }
 
@@ -207,7 +221,7 @@ export class Piano3D {
     // Calculate objects intersecting the picking ray
     // Intersect only with meshes inside keysGroup
     const intersects = this.raycaster.intersectObjects(
-      this.keysGroup.children,
+      this.clickableMeshes,
       false,
     );
 
@@ -240,6 +254,76 @@ export class Piano3D {
   animate() {
     requestAnimationFrame(this.animate.bind(this));
     this.renderer.render(this.scene, this.camera);
+  }
+
+  _buildKeyMesh(geometry, material, note) {
+    geometry.computeVertexNormals();
+    geometry.center();
+    geometry.computeBoundingBox();
+
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.userData = { note };
+    return mesh;
+  }
+
+  _buildBodyMesh(geometry) {
+    geometry.computeVertexNormals();
+    geometry.center();
+    geometry.computeBoundingBox();
+
+    const mesh = new THREE.Mesh(
+      geometry,
+      new THREE.MeshPhysicalMaterial({
+        color: 0xead8bd,
+        roughness: 0.45,
+        metalness: 0.05,
+        clearcoat: 0.2,
+      }),
+    );
+    mesh.rotation.x = -Math.PI / 2;
+    return mesh;
+  }
+
+  _placeBodyMesh() {
+    if (!this.bodyMesh || !this.keys.length) return;
+
+    const { body } = PIANO_CONFIG;
+    const keyBounds = new THREE.Box3();
+
+    this.keys.forEach(({ mesh }) => {
+      mesh.updateMatrix();
+      const meshBounds = mesh.geometry.boundingBox
+        .clone()
+        .applyMatrix4(mesh.matrix);
+      keyBounds.union(meshBounds);
+    });
+
+    this.bodyMesh.scale.set(1, 1, 1);
+    this.bodyMesh.updateMatrix();
+
+    const bodyBounds = this.bodyMesh.geometry.boundingBox
+      .clone()
+      .applyMatrix4(this.bodyMesh.matrix);
+    const keySize = keyBounds.getSize(new THREE.Vector3());
+    const keyCenter = keyBounds.getCenter(new THREE.Vector3());
+    const bodySize = bodyBounds.getSize(new THREE.Vector3());
+
+    const scaleX = (keySize.x + body.widthPadding) / bodySize.x;
+    const scaleZ = (keySize.z + body.depthPadding) / bodySize.z;
+
+    this.bodyMesh.scale.set(scaleX, 1, scaleZ);
+    this.bodyMesh.updateMatrix();
+
+    const scaledBodyBounds = this.bodyMesh.geometry.boundingBox
+      .clone()
+      .applyMatrix4(this.bodyMesh.matrix);
+
+    this.bodyMesh.position.set(
+      keyCenter.x,
+      keyBounds.min.y - scaledBodyBounds.max.y + body.topGap + body.yOffset,
+      keyCenter.z + body.zOffset,
+    );
   }
 
   // Add this method to the Piano3D class
