@@ -50,6 +50,12 @@ const PIANO_CONFIG = {
     widthPadding: 28,
     depthPadding: 40,
     topGap: 8,
+    material: {
+      color: 0xead8bd,
+      roughness: 0.45,
+      metalness: 0.05,
+      clearcoat: 0.2,
+    },
   },
   leftUIRatio: 0.2,
 };
@@ -274,12 +280,7 @@ export class Piano3D {
 
     const mesh = new THREE.Mesh(
       geometry,
-      new THREE.MeshPhysicalMaterial({
-        color: 0xead8bd,
-        roughness: 0.45,
-        metalness: 0.05,
-        clearcoat: 0.2,
-      }),
+      new THREE.MeshPhysicalMaterial(PIANO_CONFIG.body.material),
     );
     mesh.rotation.x = -Math.PI / 2;
     return mesh;
