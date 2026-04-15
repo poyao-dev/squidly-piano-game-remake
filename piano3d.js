@@ -51,7 +51,7 @@ const PIANO_CONFIG = {
     depthPadding: 40,
     topGap: 8,
     material: {
-      color: 0xead8bd,
+      color: 0x333333,
       roughness: 0.45,
       metalness: 0.05,
       clearcoat: 0.2,
