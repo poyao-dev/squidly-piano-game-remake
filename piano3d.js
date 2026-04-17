@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { WoodNodeMaterial } from "three/addons/materials/WoodNodeMaterial.js";
 
 const PIANO_CONFIG = {
   keySpacing: 20.5,
@@ -10,17 +11,17 @@ const PIANO_CONFIG = {
   materials: {
     white: {
       color: 0xffffff,
-      roughness: 0.05,
+      roughness: 0.18,
       metalness: 0.0,
-      envMapIntensity: 1.5,
+      envMapIntensity: 0.8,
     },
     black: {
-      color: 0x333333,
-      roughness: 0.05,
+      color: 0x0a0a0a,
+      roughness: 0.3,
       metalness: 0.0,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.05,
-      envMapIntensity: 2.0,
+      clearcoat: 0.22,
+      clearcoatRoughness: 0.22,
+      envMapIntensity: 0.45,
     },
   },
   // xIndex is a multiplier of keySpacing, centered around 0 (F = 0)
@@ -51,10 +52,11 @@ const PIANO_CONFIG = {
     depthPadding: 40,
     topGap: 8,
     material: {
-      color: 0x333333,
-      roughness: 0.45,
-      metalness: 0.05,
-      clearcoat: 0.2,
+      color: 0x8b5a2b,
+      roughness: 0.72,
+      metalness: 0.02,
+      clearcoat: 0.08,
+      clearcoatRoughness: 0.6,
     },
   },
   leftUIRatio: 0.2,
@@ -78,7 +80,7 @@ export class Piano3D {
 
   // camera.getViewSize(zValue)
 
-  init() {
+  async init() {
     // Scene setup
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x333333);
@@ -92,13 +94,14 @@ export class Piano3D {
     );
     this.camera.position.set(0, 150, 200); // Adjusted for typical STL scales
 
-    // Renderer setup
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    // Renderer setup (WebGPU is required by WoodNodeMaterial/TSL)
+    this.renderer = new THREE.WebGPURenderer({ antialias: true, alpha: true });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
 
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
+    await this.renderer.init();
 
     // Style the canvas to be in the background
     this.renderer.domElement.style.position = "absolute";
@@ -113,16 +116,14 @@ export class Piano3D {
     controls.update();
 
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.22);
     this.scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    // Positioned to hit the keys at an angle to create bright spec highlights
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
     dirLight.position.set(0, 150, 50);
     this.scene.add(dirLight);
 
-    // Add a secondary light closer to front/top that acts purely as a strong reflection source
-    const reflectionLight = new THREE.DirectionalLight(0xffffff, 2.0);
+    const reflectionLight = new THREE.DirectionalLight(0xffffff, 0.55);
     reflectionLight.position.set(20, 50, 80);
     this.scene.add(reflectionLight);
 
@@ -278,10 +279,8 @@ export class Piano3D {
     geometry.center();
     geometry.computeBoundingBox();
 
-    const mesh = new THREE.Mesh(
-      geometry,
-      new THREE.MeshPhysicalMaterial(PIANO_CONFIG.body.material),
-    );
+    const material = WoodNodeMaterial.fromPreset("walnut", "semigloss");
+    const mesh = new THREE.Mesh(geometry, material);
     mesh.rotation.x = -Math.PI / 2;
     return mesh;
   }
