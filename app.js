@@ -107,6 +107,10 @@ class SquidlyPianoGame {
     const whiteKeys = this.keys.filter((k) => !k.includes("#"));
     for (const key of whiteKeys) {
       const accessButtonWrapper = document.createElement("access-button");
+      accessButtonWrapper.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
       const button = document.createElement("button");
       button.textContent = key;
       //   elongated button, font size 2xl, with some padding, rounded corners, and a shadow
@@ -185,6 +189,16 @@ class SquidlyPianoGame {
         opacity: 0.01;
         display: none;
       `;
+
+      ab.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      ab.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
 
       ab.addEventListener("access-click", () => {
         console.log(`Dwell-click on key: ${key}`);

@@ -66,6 +66,7 @@ export class Piano3D {
   constructor(container) {
     this.container = container;
     this.keys = [];
+    this.keyAnimations = new Map();
     this.init();
   }
 
@@ -255,18 +256,53 @@ export class Piano3D {
 
   pressKey(note) {
     const keyObj = this.keys.find((k) => k.note === note);
-    if (keyObj && keyObj.mesh) {
-      keyObj.mesh.position.y = keyObj.restingY - 5; // Move down
+    if (!keyObj?.mesh) return;
 
-      // Reset after a short delay
-      setTimeout(() => {
-        keyObj.mesh.position.y = keyObj.restingY;
-      }, 150);
-    }
+    this.keyAnimations.set(note, {
+      keyObj,
+      startTime: performance.now(),
+      duration: 180,
+    });
   }
 
   animate() {
     requestAnimationFrame(this.animate.bind(this));
+
+    const now = performance.now();
+    this.keyAnimations.forEach((animation, note) => {
+      const { keyObj, startTime, duration } = animation;
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const pulse = Math.sin(progress * Math.PI);
+      const isWhiteKey = keyObj.note.length === 1;
+
+      keyObj.mesh.position.y = keyObj.restingY - 5 * pulse;
+
+      if (keyObj.mesh.material?.emissive) {
+        keyObj.mesh.material.emissive.set(isWhiteKey ? 0xff0000 : 0x33bbff);
+        keyObj.mesh.material.emissiveIntensity =
+          (isWhiteKey ? 4.2 : 1.4) * pulse;
+      }
+
+      if (isWhiteKey && keyObj.mesh.material?.color) {
+        keyObj.mesh.material.color.setRGB(1, 1 - 0.5 * pulse, 1 - 0.5 * pulse);
+      }
+
+      if (progress >= 1) {
+        keyObj.mesh.position.y = keyObj.restingY;
+
+        if (keyObj.mesh.material?.emissive) {
+          keyObj.mesh.material.emissiveIntensity = 0;
+        }
+
+        if (keyObj.mesh.material?.color && isWhiteKey) {
+          keyObj.mesh.material.color.set(0xffffff);
+        }
+
+        this.keyAnimations.delete(note);
+      }
+    });
+
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -275,7 +311,13 @@ export class Piano3D {
     geometry.center();
     geometry.computeBoundingBox();
 
-    const mesh = new THREE.Mesh(geometry, material);
+    const keyMaterial = material.clone();
+    if (keyMaterial.emissive) {
+      keyMaterial.emissive.set(0x000000);
+      keyMaterial.emissiveIntensity = 0;
+    }
+
+    const mesh = new THREE.Mesh(geometry, keyMaterial);
     mesh.rotation.x = -Math.PI / 2;
     mesh.userData = { note };
     return mesh;
