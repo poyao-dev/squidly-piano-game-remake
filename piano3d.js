@@ -59,7 +59,7 @@ const PIANO_CONFIG = {
       clearcoatRoughness: 0.6,
     },
   },
-  leftUIRatio: 0.2,
+  leftUIRatio: 0,
 };
 
 export class Piano3D {
@@ -83,31 +83,27 @@ export class Piano3D {
   async init() {
     // Scene setup
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x333333);
+    this.scene.background = null;
 
     // Camera setup
-    this.camera = new THREE.PerspectiveCamera(
-      45,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000,
-    );
+    const { width, height } = this._getViewportBounds();
+    this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
     this.camera.position.set(0, 150, 200); // Adjusted for typical STL scales
 
     // Renderer setup (WebGPU is required by WoodNodeMaterial/TSL)
     this.renderer = new THREE.WebGPURenderer({ antialias: true, alpha: true });
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setSize(width, height);
+    this.renderer.domElement.style.background = "transparent";
 
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     await this.renderer.init();
 
-    // Style the canvas to be in the background
+    // Style the canvas to occupy only the right 80% of the screen
     this.renderer.domElement.style.position = "absolute";
-    this.renderer.domElement.style.top = "0";
-    this.renderer.domElement.style.left = "0";
     this.renderer.domElement.style.zIndex = "-1";
+    this._applyRendererLayout();
     this.container.appendChild(this.renderer.domElement);
 
     // Controls
@@ -162,8 +158,10 @@ export class Piano3D {
 
     this.keysGroup = new THREE.Group();
     this.clickableMeshes = [];
-    this.keysGroup.scale.setScalar(groupScale);
+    this.baseGroupScale = groupScale;
     this.keysGroup.rotation.x = groupRotationX;
+    this.keysGroup.position.y = -25;
+    this._updateResponsivePianoScale();
     const worldWidth = this._getWorldWidthAtZ(this.camera.position.z);
     // shift by half of the UI portion (because center moves)
     const shiftX = worldWidth * (leftUIRatio / 3);
@@ -212,15 +210,24 @@ export class Piano3D {
   }
 
   onWindowResize() {
-    this.camera.aspect = window.innerWidth / window.innerHeight;
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this._applyRendererLayout();
+    this._updateResponsivePianoScale();
   }
 
   onPointerDown(event) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (
+      event.clientX < rect.left ||
+      event.clientX > rect.right ||
+      event.clientY < rect.top ||
+      event.clientY > rect.bottom
+    ) {
+      return;
+    }
+
     // Calculate mouse position in normalized device coordinates (-1 to +1)
-    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
     // Update the picking ray with the camera and mouse position
     this.raycaster.setFromCamera(this.mouse, this.camera);
@@ -338,10 +345,11 @@ export class Piano3D {
 
     // Project 3D → NDC (normalized device coordinates)
     const ndc = worldPos.clone().project(this.camera);
+    const rect = this.renderer.domElement.getBoundingClientRect();
 
-    // NDC → screen pixels
-    const x = (ndc.x * 0.5 + 0.5) * window.innerWidth;
-    const y = (-ndc.y * 0.5 + 0.5) * window.innerHeight;
+    // NDC → screen pixels within the renderer bounds
+    const x = rect.left + (ndc.x * 0.5 + 0.5) * rect.width;
+    const y = rect.top + (-ndc.y * 0.5 + 0.5) * rect.height;
     return { x, y };
   }
 
@@ -354,6 +362,32 @@ export class Piano3D {
       note: k.note,
       ...this.getKeyScreenPosition(k),
     }));
+  }
+
+  _getViewportBounds() {
+    const width = window.innerWidth * 0.8;
+    const height = window.innerHeight;
+    const left = window.innerWidth * 0.2;
+    return { left, top: 0, width, height };
+  }
+
+  _applyRendererLayout() {
+    const { left, top, width, height } = this._getViewportBounds();
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(width, height, false);
+    this.renderer.domElement.style.left = `${left}px`;
+    this.renderer.domElement.style.top = `${top}px`;
+    this.renderer.domElement.style.width = `${width}px`;
+    this.renderer.domElement.style.height = `${height}px`;
+  }
+
+  _updateResponsivePianoScale() {
+    if (!this.keysGroup || !this.baseGroupScale) return;
+
+    const { width } = this._getViewportBounds();
+    const scaleFactor = THREE.MathUtils.clamp(width / 1200, 0.65, 1);
+    this.keysGroup.scale.setScalar(this.baseGroupScale * scaleFactor);
   }
 
   _getWorldWidthAtZ(z) {
