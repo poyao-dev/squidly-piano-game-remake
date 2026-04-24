@@ -3,10 +3,11 @@ import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { WoodNodeMaterial } from "three/addons/materials/WoodNodeMaterial.js";
+import { PianoKeyEffects } from "./pianoKeyEffects.js";
 
 const PIANO_CONFIG = {
   keySpacing: 20.5,
-  groupScale: 1.5,
+  groupScale: 1.9,
   groupRotationX: Math.PI / 8,
   materials: {
     white: {
@@ -24,7 +25,6 @@ const PIANO_CONFIG = {
       envMapIntensity: 0.45,
     },
   },
-  // xIndex is a multiplier of keySpacing, centered around 0 (F = 0)
   whiteKeys: [
     { note: "C", file: "Left Piano Key.stl", xIndex: -3 },
     { note: "D", file: "Middle Piano Key.stl", xIndex: -2 },
@@ -34,7 +34,6 @@ const PIANO_CONFIG = {
     { note: "A", file: "Middle Piano Key.stl", xIndex: 2 },
     { note: "B", file: "Right Piano Key.stl", xIndex: 3 },
   ],
-  // xOffset is a half-spacing multiplier, e.g. -2.5 sits between xIndex -3 and -2
   blackKeys: [
     { note: "Db", xOffset: -2.5 },
     { note: "Eb", xOffset: -1.5 },
@@ -51,13 +50,6 @@ const PIANO_CONFIG = {
     widthPadding: 28,
     depthPadding: 40,
     topGap: 8,
-    material: {
-      color: 0x8b5a2b,
-      roughness: 0.72,
-      metalness: 0.02,
-      clearcoat: 0.08,
-      clearcoatRoughness: 0.6,
-    },
   },
   leftUIRatio: 0,
 };
@@ -66,55 +58,40 @@ export class Piano3D {
   constructor(container) {
     this.container = container;
     this.keys = [];
-    this.keyAnimations = new Map();
+    this.clickableMeshes = [];
+    this.brightHighlightPalette = [
+      0x5e102b, 0x5c3200, 0x544600, 0x144726, 0x083f43, 0x163268, 0x432668,
+      0x5c2940,
+    ];
     this.init();
   }
 
-  // let mouse = new Vector2(
-  //           (x / this.clientWidth) * 2 - 1,
-  //           -(y / this.clientHeight) * 2 + 1
-  //       );
-  //       let raycaster = new Raycaster();
-  //       raycaster.setFromCamera(mouse, this.camera);
-  //       let intersects = raycaster.intersectObjects(meshes || []);
-  //       return intersects;
-
-  // camera.getViewSize(zValue)
-
   async init() {
-    // Scene setup
     this.scene = new THREE.Scene();
     this.scene.background = null;
 
-    // Camera setup
     const { width, height } = this._getViewportBounds();
     this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    this.camera.position.set(0, 150, 200); // Adjusted for typical STL scales
+    this.camera.position.set(0, 150, 200);
 
-    // Renderer setup (WebGPU is required by WoodNodeMaterial/TSL)
     this.renderer = new THREE.WebGPURenderer({ antialias: true, alpha: true });
     this.renderer.setSize(width, height);
     this.renderer.domElement.style.background = "transparent";
-
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     await this.renderer.init();
 
-    // Style the canvas to occupy only the right 80% of the screen
     this.renderer.domElement.style.position = "absolute";
     this.renderer.domElement.style.zIndex = "-1";
     this._applyRendererLayout();
     this.container.appendChild(this.renderer.domElement);
 
-    // Controls
     const controls = new OrbitControls(this.camera, this.renderer.domElement);
     controls.target.set(0, -30, 0);
     controls.update();
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.22);
-    this.scene.add(ambientLight);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.22));
 
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
     dirLight.position.set(0, 150, 50);
@@ -124,7 +101,6 @@ export class Piano3D {
     reflectionLight.position.set(20, 50, 80);
     this.scene.add(reflectionLight);
 
-    // Environment map for reflections
     const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
     const envTexture = pmremGenerator.fromScene(new RoomEnvironment()).texture;
     this.scene.environment = envTexture;
@@ -132,7 +108,6 @@ export class Piano3D {
 
     this.loadModels();
 
-    // Raycaster setup
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
 
@@ -158,17 +133,18 @@ export class Piano3D {
     } = PIANO_CONFIG;
 
     this.keysGroup = new THREE.Group();
-    this.clickableMeshes = [];
     this.baseGroupScale = groupScale;
     this.keysGroup.rotation.x = groupRotationX;
     this.keysGroup.position.y = -25;
     this._updateResponsivePianoScale();
-    const worldWidth = this._getWorldWidthAtZ(this.camera.position.z);
-    // shift by half of the UI portion (because center moves)
-    const shiftX = worldWidth * (leftUIRatio / 3);
 
-    this.keysGroup.position.x += shiftX;
+    const worldWidth = this._getWorldWidthAtZ(this.camera.position.z);
+    this.keysGroup.position.x += worldWidth * (leftUIRatio / 3);
     this.scene.add(this.keysGroup);
+
+    this.effects = new PianoKeyEffects(this.keysGroup, {
+      palette: this.brightHighlightPalette,
+    });
 
     const materialWhite = new THREE.MeshStandardMaterial(materials.white);
     const materialBlack = new THREE.MeshPhysicalMaterial(materials.black);
@@ -177,6 +153,8 @@ export class Piano3D {
       loader.loadAsync(`./mesh/${keyDef.file}`).then((geometry) => {
         const mesh = this._buildKeyMesh(geometry, materialWhite, keyDef.note);
         mesh.position.set(keyDef.xIndex * keySpacing, 0, 0);
+        mesh.userData.baseScale = mesh.scale.clone();
+
         this.keysGroup.add(mesh);
         this.clickableMeshes.push(mesh);
         this.keys.push({ note: keyDef.note, mesh, restingY: mesh.position.y });
@@ -192,6 +170,8 @@ export class Piano3D {
           blackKeyPosition.z,
         );
         mesh.scale.set(...blackKeyScale);
+        mesh.userData.baseScale = mesh.scale.clone();
+
         this.keysGroup.add(mesh);
         this.clickableMeshes.push(mesh);
         this.keys.push({ note: keyDef.note, mesh, restingY: mesh.position.y });
@@ -207,6 +187,7 @@ export class Piano3D {
 
     Promise.all([...whiteKeyLoads, ...blackKeyLoads, bodyLoad]).then(() => {
       this._placeBodyMesh();
+      this.keys.forEach((keyObj) => this.effects.ensureEffect(keyObj));
     });
   }
 
@@ -226,83 +207,34 @@ export class Piano3D {
       return;
     }
 
-    // Calculate mouse position in normalized device coordinates (-1 to +1)
     this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    // Update the picking ray with the camera and mouse position
     this.raycaster.setFromCamera(this.mouse, this.camera);
 
-    // Calculate objects intersecting the picking ray
-    // Intersect only with meshes inside keysGroup
     const intersects = this.raycaster.intersectObjects(
       this.clickableMeshes,
       false,
     );
+    if (!intersects.length) return;
 
-    if (intersects.length > 0) {
-      // The first intersected object is the closest one
-      const hitMesh = intersects[0].object;
-      const note = hitMesh.userData.note;
-      if (note) {
-        // Dispatch a custom event so the main app can integrate it with Firebase/Audio seamlessly
-        const pianoEvent = new CustomEvent("piano3d-keypress", {
-          detail: { note },
-        });
-        window.dispatchEvent(pianoEvent);
-      }
-    }
+    const note = intersects[0].object.userData.note;
+    if (!note) return;
+
+    const pianoEvent = new CustomEvent("piano3d-keypress", {
+      detail: { note },
+    });
+    window.dispatchEvent(pianoEvent);
   }
 
   pressKey(note) {
     const keyObj = this.keys.find((k) => k.note === note);
-    if (!keyObj?.mesh) return;
-
-    this.keyAnimations.set(note, {
-      keyObj,
-      startTime: performance.now(),
-      duration: 180,
-    });
+    if (!keyObj?.mesh || !this.effects) return;
+    this.effects.trigger(keyObj);
   }
 
   animate() {
     requestAnimationFrame(this.animate.bind(this));
-
-    const now = performance.now();
-    this.keyAnimations.forEach((animation, note) => {
-      const { keyObj, startTime, duration } = animation;
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const pulse = Math.sin(progress * Math.PI);
-      const isWhiteKey = keyObj.note.length === 1;
-
-      keyObj.mesh.position.y = keyObj.restingY - 5 * pulse;
-
-      if (keyObj.mesh.material?.emissive) {
-        keyObj.mesh.material.emissive.set(isWhiteKey ? 0xff0000 : 0x33bbff);
-        keyObj.mesh.material.emissiveIntensity =
-          (isWhiteKey ? 4.2 : 1.4) * pulse;
-      }
-
-      if (isWhiteKey && keyObj.mesh.material?.color) {
-        keyObj.mesh.material.color.setRGB(1, 1 - 0.5 * pulse, 1 - 0.5 * pulse);
-      }
-
-      if (progress >= 1) {
-        keyObj.mesh.position.y = keyObj.restingY;
-
-        if (keyObj.mesh.material?.emissive) {
-          keyObj.mesh.material.emissiveIntensity = 0;
-        }
-
-        if (keyObj.mesh.material?.color && isWhiteKey) {
-          keyObj.mesh.material.color.set(0xffffff);
-        }
-
-        this.keyAnimations.delete(note);
-      }
-    });
-
+    if (this.effects) this.effects.update(performance.now());
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -375,30 +307,18 @@ export class Piano3D {
     );
   }
 
-  // Add this method to the Piano3D class
-
-  /**
-   * Projects a 3D key's world position to 2D screen coordinates.
-   * Returns { x, y } in pixels relative to the viewport.
-   */
   getKeyScreenPosition(keyObj) {
     const worldPos = new THREE.Vector3();
     keyObj.mesh.getWorldPosition(worldPos);
 
-    // Project 3D → NDC (normalized device coordinates)
     const ndc = worldPos.clone().project(this.camera);
     const rect = this.renderer.domElement.getBoundingClientRect();
 
-    // NDC → screen pixels within the renderer bounds
     const x = rect.left + (ndc.x * 0.5 + 0.5) * rect.width;
     const y = rect.top + (-ndc.y * 0.5 + 0.5) * rect.height;
     return { x, y };
   }
 
-  /**
-   * Returns screen positions for all keys.
-   * Call this after models have loaded and on each resize.
-   */
   getAllKeyScreenPositions() {
     return this.keys.map((k) => ({
       note: k.note,
@@ -428,14 +348,13 @@ export class Piano3D {
     if (!this.keysGroup || !this.baseGroupScale) return;
 
     const { width } = this._getViewportBounds();
-    const scaleFactor = THREE.MathUtils.clamp(width / 1200, 0.65, 1);
+    const scaleFactor = THREE.MathUtils.clamp(width / 1200, 0.8, 1.15);
     this.keysGroup.scale.setScalar(this.baseGroupScale * scaleFactor);
   }
 
   _getWorldWidthAtZ(z) {
     const vFOV = (this.camera.fov * Math.PI) / 180;
     const height = 2 * Math.tan(vFOV / 2) * Math.abs(z);
-    const width = height * this.camera.aspect;
-    return width;
+    return height * this.camera.aspect;
   }
 }
