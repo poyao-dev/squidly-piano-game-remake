@@ -42,7 +42,7 @@ class SquidlyPianoGame {
       this._updateVolume,
     );
     this._setupAudioSources();
-    // this._setupKeyboard();
+
     this._setupListeners();
     this._setupSideBarButtons();
     this._setupOverlayButtons();
@@ -92,43 +92,6 @@ class SquidlyPianoGame {
         { symbol, displayValue: label, type: "action" },
         () => this._adjustVolume(delta),
       );
-    }
-  }
-
-  _setupKeyboard() {
-    // Create a container for the piano keys
-    const pianoContainer = document.createElement("div");
-    // flexbox with wrapping layout, centered at the bottom, filling available height
-    pianoContainer.className =
-      "flex flex-wrap justify-center items-end h-full p-2";
-
-    document.body.appendChild(pianoContainer);
-    // iterate over the white keys on the keyboard and create buttons for them
-    const whiteKeys = this.keys.filter((k) => !k.includes("#"));
-    for (const key of whiteKeys) {
-      const accessButtonWrapper = document.createElement("access-button");
-      accessButtonWrapper.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
-      const button = document.createElement("button");
-      button.textContent = key;
-      //   elongated button, font size 2xl, with some padding, rounded corners, and a shadow
-      button.className =
-        "w-[15vh] h-[15vh] bg-white text-black font-bold text-sm sm:text-lg md:text-2xl py-2 px-3 rounded-full shadow-lg m-1 sm:m-3 md:m-5 transform transition hover:-translate-y-0.5 active:translate-y-0";
-
-      accessButtonWrapper.addEventListener("access-click", () => {
-        console.log(`Key ${key} pressed`);
-        // add a timestamp to the key press
-        SquidlyAPI.firebaseSet("pianoKeyPressed", key + "_" + Date.now());
-      });
-      button.addEventListener("click", () => {
-        console.log(`Key ${key} pressed`);
-        // add a timestamp to the key press
-        SquidlyAPI.firebaseSet("pianoKeyPressed", key + "_" + Date.now());
-      });
-      accessButtonWrapper.appendChild(button);
-      pianoContainer.appendChild(accessButtonWrapper);
     }
   }
 
