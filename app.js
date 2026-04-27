@@ -141,7 +141,9 @@ class SquidlyPianoGame {
 
     for (const key of this.keys) {
       const ab = document.createElement("access-button");
-      ab.setAttribute("access-group", "piano-keys");
+      const accessGroup =
+        key.length > 1 ? "piano-black-keys" : "piano-white-keys";
+      ab.setAttribute("access-group", accessGroup);
 
       // ✅ Keep a generous hit area so elementFromPoint can find it,
       // but the raycaster isPointInElement does the PRECISE check
