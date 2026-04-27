@@ -144,6 +144,7 @@ export class Piano3D {
 
     this.effects = new PianoKeyEffects(this.keysGroup, {
       palette: this.brightHighlightPalette,
+      scene: this.scene,
     });
 
     const materialWhite = new THREE.MeshStandardMaterial(materials.white);
