@@ -80,17 +80,54 @@ class SquidlyPianoGame {
     );
   };
 
+  _playTune = (tune, noteDelay = 1000) => {
+    if (!Array.isArray(tune) || tune.length === 0) return;
+
+    tune.forEach((note, index) => {
+      if (typeof note !== "string" || !note.trim()) return;
+
+      setTimeout(() => {
+        SquidlyAPI.firebaseSet("pianoKeyPressed", `${note}_${Date.now()}`);
+      }, index * noteDelay);
+    });
+  };
+
+  _playRandomTune = () => {
+    const tuneSets = [
+      ["C", "E", "G", "E", "C"],
+      ["G", "F", "E", "D", "C"],
+      ["C", "D", "E", "G", "E", "C"],
+      ["F", "A", "C", "A", "F"],
+    ];
+
+    const randomIndex = Math.floor(Math.random() * tuneSets.length);
+    const selectedTune = tuneSets[randomIndex];
+
+    this._playTune(selectedTune);
+  };
+
   _setupSideBarButtons() {
     const buttons = [
       { id: 1, symbol: "add", label: "Volume Up", delta: 0.05 },
       { id: 2, symbol: "minus", label: "Volume Down", delta: -0.05 },
+      { id: 3, symbol: "unmute", label: "Play tune" },
     ];
-    for (const { id, symbol, label, delta } of buttons) {
+
+    for (const button of buttons) {
+      const { id, symbol, label, delta } = button;
+
       SquidlyAPI.setIcon(
         id,
         0,
         { symbol, displayValue: label, type: "action" },
-        () => this._adjustVolume(delta),
+        () => {
+          if (typeof delta === "number") {
+            this._adjustVolume(delta);
+            return;
+          }
+
+          this._playRandomTune();
+        },
       );
     }
   }
