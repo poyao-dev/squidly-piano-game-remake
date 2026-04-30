@@ -117,8 +117,8 @@ class SquidlyPianoGame {
       const { id, symbol, label, delta } = button;
 
       SquidlyAPI.setIcon(
-        id,
         0,
+        id,
         { symbol, displayValue: label, type: "action" },
         () => {
           if (typeof delta === "number") {
@@ -225,10 +225,11 @@ class SquidlyPianoGame {
       const pos = this.piano3D.getKeyScreenPosition(keyObj);
       const isBlack = keyObj.note.length > 1; // "Db", "Eb", etc.
       const w = isBlack ? 30 : 50;
-      const h = isBlack ? 60 : 100;
+      const h = isBlack ? 90 : 140;
+      const downwardOffset = isBlack ? 20 : 30;
 
       ab.style.left = `${pos.x - w / 2}px`;
-      ab.style.top = `${pos.y}px`;
+      ab.style.top = `${pos.y - downwardOffset}px`;
       ab.style.width = `${1.2 * w}px`;
       ab.style.height = `${1.2 * h}px`;
       ab.style.display = "block";

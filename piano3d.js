@@ -9,6 +9,11 @@ const PIANO_CONFIG = {
   keySpacing: 20.5,
   groupScale: 1.9,
   groupRotationX: Math.PI / 8,
+  viewport: {
+    leftRatio: 0,
+    top: 0,
+    heightRatio: 1,
+  },
   materials: {
     white: {
       color: 0xffffff,
@@ -328,10 +333,11 @@ export class Piano3D {
   }
 
   _getViewportBounds() {
-    const width = window.innerWidth * 0.8;
-    const height = window.innerHeight;
-    const left = window.innerWidth * 0.2;
-    return { left, top: 0, width, height };
+    const { viewport } = PIANO_CONFIG;
+    const left = window.innerWidth * viewport.leftRatio;
+    const width = window.innerWidth - left;
+    const height = window.innerHeight * viewport.heightRatio;
+    return { left, top: viewport.top, width, height };
   }
 
   _applyRendererLayout() {
