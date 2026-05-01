@@ -46,8 +46,10 @@ const PIANO_CONFIG = {
     { note: "Ab", xOffset: 1.5 },
     { note: "Bb", xOffset: 2.5 },
   ],
-  blackKeyScale: [1.2, 0.9, 0.4],
-  blackKeyPosition: { y: 8, z: -13 },
+  whiteKeyScale: [1, 1, 1],
+  whiteKeyPosition: { y: 0, z: 0 },
+  blackKeyScale: [1.2, 0.6, 0.4],
+  blackKeyPosition: { y: 8, z: -5 },
   body: {
     file: "piano body.stl",
     yOffset: 60,
@@ -77,7 +79,7 @@ export class Piano3D {
 
     const { width, height } = this._getViewportBounds();
     this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    this.camera.position.set(0, 150, 200);
+    this.camera.position.set(0, 170, 230);
 
     this.renderer = new THREE.WebGPURenderer({ antialias: true, alpha: true });
     this.renderer.setSize(width, height);
@@ -93,7 +95,7 @@ export class Piano3D {
     this.container.appendChild(this.renderer.domElement);
 
     const controls = new OrbitControls(this.camera, this.renderer.domElement);
-    controls.target.set(0, -30, 0);
+    controls.target.set(0, -10, 0);
     controls.update();
 
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.22));
@@ -131,6 +133,8 @@ export class Piano3D {
       materials,
       whiteKeys,
       blackKeys,
+      whiteKeyScale,
+      whiteKeyPosition,
       blackKeyScale,
       blackKeyPosition,
       body,
@@ -158,7 +162,12 @@ export class Piano3D {
     const whiteKeyLoads = whiteKeys.map((keyDef) =>
       loader.loadAsync(`./mesh/${keyDef.file}`).then((geometry) => {
         const mesh = this._buildKeyMesh(geometry, materialWhite, keyDef.note);
-        mesh.position.set(keyDef.xIndex * keySpacing, 0, 0);
+        mesh.position.set(
+          keyDef.xIndex * keySpacing,
+          whiteKeyPosition.y,
+          whiteKeyPosition.z,
+        );
+        mesh.scale.set(...whiteKeyScale);
         mesh.userData.baseScale = mesh.scale.clone();
 
         this.keysGroup.add(mesh);

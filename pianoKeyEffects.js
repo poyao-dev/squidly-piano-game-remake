@@ -5,9 +5,9 @@ const PIANO_KEY_EFFECTS_CONFIG = {
     0x5e102b, 0x5c3200, 0x544600, 0x144726, 0x083f43, 0x163268, 0x432668,
     0x5c2940,
   ],
-  particleCount: 10,
+  particleCount: 18,
   keyPressDepth: 5,
-  durationMs: 260,
+  durationMs: 360,
   noteCount: 16,
   notesPerTrigger: 4,
   noteBurst: {
@@ -26,13 +26,19 @@ const PIANO_KEY_EFFECTS_CONFIG = {
     deltaScale: 0.06,
   },
   outline: {
-    baseScale: 1.03,
-    pulseScale: 0.08,
+    baseScale: 1.01,
+    pulseScale: 0.025,
     thresholdAngle: 12,
     renderOrder: 999,
   },
+  surfaceGlow: {
+    baseScale: 1,
+    pulseScale: 0,
+    opacity: 0.72,
+    renderOrder: 998,
+  },
   particles: {
-    geometryRadius: 0.9,
+    geometryRadius: 1.25,
     geometryWidthSegments: 8,
     geometryHeightSegments: 8,
     speedMin: 14,
@@ -49,13 +55,13 @@ const PIANO_KEY_EFFECTS_CONFIG = {
     renderOrder: 999,
   },
   whiteKey: {
-    emissiveIntensity: 0.7,
-    colorLerp: 0.55,
+    emissiveIntensity: 2.4,
+    colorLerp: 0.95,
     glowYOffset: 12,
     glowZOffset: -4,
   },
   blackKey: {
-    emissiveIntensity: 0.9,
+    emissiveIntensity: 1.7,
     glowYOffset: 9,
     glowZOffset: 0,
   },
@@ -97,6 +103,10 @@ export class PianoKeyEffects {
         ...PIANO_KEY_EFFECTS_CONFIG.particles,
         ...(options.particles || {}),
       },
+      surfaceGlow: {
+        ...PIANO_KEY_EFFECTS_CONFIG.surfaceGlow,
+        ...(options.surfaceGlow || {}),
+      },
       whiteKey: {
         ...PIANO_KEY_EFFECTS_CONFIG.whiteKey,
         ...(options.whiteKey || {}),
@@ -124,8 +134,9 @@ export class PianoKeyEffects {
   trigger(keyObj) {
     if (!keyObj?.note || !keyObj?.mesh) return;
 
-    const highlightColor =
+    const baseHighlightColor =
       this.palette[Math.floor(Math.random() * this.palette.length)];
+    const highlightColor = this._getHighlightColor(keyObj, baseHighlightColor);
 
     const effect = this.ensureEffect(keyObj);
     this._activateEffect(effect, keyObj, highlightColor);
@@ -202,6 +213,7 @@ export class PianoKeyEffects {
       transparent: true,
       opacity: 0,
       depthTest: false,
+      blending: THREE.AdditiveBlending,
     });
 
     const outline = new THREE.LineSegments(outlineGeometry, outlineMaterial);
@@ -209,6 +221,24 @@ export class PianoKeyEffects {
     outline.renderOrder = this.config.outline.renderOrder;
     outline.scale.setScalar(this.config.outline.baseScale);
     keyObj.mesh.add(outline);
+
+    const surfaceGlowMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    const surfaceGlow = new THREE.Mesh(
+      keyObj.mesh.geometry,
+      surfaceGlowMaterial,
+    );
+    surfaceGlow.visible = false;
+    surfaceGlow.renderOrder = this.config.surfaceGlow.renderOrder;
+    surfaceGlow.scale.setScalar(this.config.surfaceGlow.baseScale);
+    keyObj.mesh.add(surfaceGlow);
 
     const particles = [];
     const particleGeometry = new THREE.SphereGeometry(
@@ -223,6 +253,7 @@ export class PianoKeyEffects {
         transparent: true,
         opacity: 0,
         depthTest: false,
+        blending: THREE.AdditiveBlending,
       });
 
       const mesh = new THREE.Mesh(particleGeometry, particleMaterial);
@@ -239,7 +270,7 @@ export class PianoKeyEffects {
       });
     }
 
-    const effect = { outline, particles };
+    const effect = { outline, surfaceGlow, particles };
     this.effectsByNote.set(keyObj.note, effect);
     return effect;
   }
@@ -247,6 +278,9 @@ export class PianoKeyEffects {
   _activateEffect(effect, keyObj, highlightColor) {
     effect.outline.visible = true;
     effect.outline.material.color.set(highlightColor);
+
+    effect.surfaceGlow.visible = true;
+    effect.surfaceGlow.material.color.set(highlightColor);
 
     effect.particles.forEach((particle, index) => {
       particle.angle = Math.random() * Math.PI * 2;
@@ -279,6 +313,15 @@ export class PianoKeyEffects {
     effect.outline.material.opacity = Math.max(0, 1 - progress);
     effect.outline.scale.setScalar(
       this.config.outline.baseScale + pulse * this.config.outline.pulseScale,
+    );
+
+    effect.surfaceGlow.visible = true;
+    effect.surfaceGlow.material.color.set(highlightColor);
+    effect.surfaceGlow.material.opacity =
+      this.config.surfaceGlow.opacity * pulse;
+    effect.surfaceGlow.scale.setScalar(
+      this.config.surfaceGlow.baseScale +
+        pulse * this.config.surfaceGlow.pulseScale,
     );
 
     effect.particles.forEach((particle) => {
@@ -322,12 +365,28 @@ export class PianoKeyEffects {
     effect.outline.material.opacity = 0;
     effect.outline.scale.setScalar(this.config.outline.baseScale);
 
+    effect.surfaceGlow.visible = false;
+    effect.surfaceGlow.material.opacity = 0;
+    effect.surfaceGlow.scale.setScalar(this.config.surfaceGlow.baseScale);
+
     effect.particles.forEach((particle) => {
       particle.mesh.visible = false;
       particle.mesh.material.opacity = 0;
     });
 
     keyObj.mesh.scale.copy(baseScale);
+  }
+
+  _getHighlightColor(keyObj, color) {
+    const highlight = new THREE.Color(color);
+
+    if (keyObj.note.length === 1) {
+      const hsl = {};
+      highlight.getHSL(hsl);
+      highlight.setHSL(hsl.h, 1, 0.62);
+    }
+
+    return highlight.getHex();
   }
 
   _getGlowOrigin(keyObj) {
@@ -396,6 +455,7 @@ export class PianoKeyEffects {
       transparent: true,
       opacity: 1,
       depthTest: false,
+      blending: THREE.AdditiveBlending,
     });
 
     const sprite = new THREE.Sprite(material);
