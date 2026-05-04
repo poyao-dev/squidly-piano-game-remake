@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { WoodNodeMaterial } from "three/addons/materials/WoodNodeMaterial.js";
+// import { WoodNodeMaterial } from "three/addons/materials/WoodNodeMaterial.js";
 import { PianoKeyEffects } from "./pianoKeyEffects.js";
 
 const PIANO_CONFIG = {
@@ -196,7 +196,7 @@ export class Piano3D {
     const bodyLoad = loader
       .loadAsync(`./mesh/${body.file}`)
       .then((geometry) => {
-        this.bodyMesh = this._buildBodyMesh(geometry);
+        this.bodyMesh = this._buildBodyMesh(geometry, materialBlack);
         this.keysGroup.add(this.bodyMesh);
       });
 
@@ -270,13 +270,13 @@ export class Piano3D {
     return mesh;
   }
 
-  _buildBodyMesh(geometry) {
+  _buildBodyMesh(geometry, material) {
     geometry.computeVertexNormals();
     geometry.center();
     geometry.computeBoundingBox();
 
-    const material = WoodNodeMaterial.fromPreset("walnut", "semigloss");
-    const mesh = new THREE.Mesh(geometry, material);
+    // const material = WoodNodeMaterial.fromPreset("walnut", "semigloss");
+    const mesh = new THREE.Mesh(geometry, material.clone());
     mesh.rotation.x = -Math.PI / 2;
     return mesh;
   }
