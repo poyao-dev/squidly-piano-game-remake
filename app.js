@@ -224,9 +224,13 @@ class SquidlyPianoGame {
       // The raycaster isPointInElement does the precise check
       const pos = this.piano3D.getKeyScreenPosition(keyObj);
       const isBlack = keyObj.note.length > 1; // "Db", "Eb", etc.
-      const w = isBlack ? 30 : 50;
-      const h = isBlack ? 90 : 140;
-      const downwardOffset = isBlack ? 20 : 30;
+      const clickboxScale = Math.min(
+        window.innerWidth / 900,
+        window.innerHeight / 600,
+      );
+      const w = clickboxScale * (isBlack ? 60 : 70);
+      const h = clickboxScale * (isBlack ? 110 : 150);
+      const downwardOffset = h * (isBlack ? 0.5 : -0.1);
 
       ab.style.left = `${pos.x - w / 2}px`;
       ab.style.top = `${pos.y - downwardOffset}px`;

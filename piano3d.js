@@ -8,7 +8,7 @@ import { PianoKeyEffects } from "./pianoKeyEffects.js";
 const PIANO_CONFIG = {
   keySpacing: 20.5,
   groupScale: 1.9,
-  groupRotationX: Math.PI / 8,
+  groupRotationX: Math.PI / 4,
   viewport: {
     leftRatio: 0,
     top: 0,
