@@ -81,13 +81,12 @@ export class Piano3D {
     this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
     this.camera.position.set(0, 170, 230);
 
-    this.renderer = new THREE.WebGPURenderer({ antialias: true, alpha: true });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setSize(width, height);
     this.renderer.domElement.style.background = "transparent";
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
-    await this.renderer.init();
 
     this.renderer.domElement.style.position = "absolute";
     this.renderer.domElement.style.zIndex = "-1";
